@@ -7,12 +7,16 @@ import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
+import androidx.work.PeriodicWorkRequest
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.rickyslash.workmanagerapp.databinding.ActivityMainBinding
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     private lateinit var workManager: WorkManager
+    private lateinit var periodicWorkRequest: PeriodicWorkRequest
     private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,27 +27,72 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
         workManager = WorkManager.getInstance(this)
         binding.btnOneTimeTask.setOnClickListener(this)
+        binding.btnPeriodicTask.setOnClickListener(this)
+        binding.btnCancelTask.setOnClickListener(this)
     }
 
     override fun onClick(v: View?) {
         when (v?.id) {
             R.id.btnOneTimeTask -> startOneTimeTask()
+            R.id.btnPeriodicTask -> startPeriodicTask()
+            R.id.btnCancelTask -> cancelPeriodicTask()
         }
     }
 
-    private fun startOneTimeTask() {
+    private fun cancelPeriodicTask() {
+        workManager.cancelWorkById(periodicWorkRequest.id)
+    }
+
+    // build & call worker for PeriodicWorkRequest
+    private fun startPeriodicTask() {
         binding.textStatus.text = getString(R.string.status)
+        // sets data that is going to be sent to Worker
         val data = Data.Builder()
             .putString(MyWorker.EXTRA_CITY, binding.editCity.text.toString())
             .build()
+        // constraints will do the task when conditions of constraints are met
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
+        // start PeriodicWorkRequest for the task by MyWorker class
+        periodicWorkRequest = PeriodicWorkRequest.Builder(MyWorker::class.java, 15, TimeUnit.MINUTES)
+            .setInputData(data)
+            .setConstraints(constraints)
+            .build()
+        // enqueue the given task
+        workManager.enqueue(periodicWorkRequest)
+        // monitoring the task state
+        workManager.getWorkInfoByIdLiveData(periodicWorkRequest.id)
+            .observe(this@MainActivity) { workInfo ->
+                val status = workInfo.state.name
+                binding.textStatus.append("\n" + status)
+
+                binding.btnCancelTask.isEnabled = false
+                if (workInfo.state == WorkInfo.State.ENQUEUED) {
+                    binding.btnCancelTask.isEnabled = true
+                }
+            }
+    }
+
+    // build & call worker for OneTimeWorkRequest
+    private fun startOneTimeTask() {
+        binding.textStatus.text = getString(R.string.status)
+        // sets data that is going to be sent to Worker
+        val data = Data.Builder()
+            .putString(MyWorker.EXTRA_CITY, binding.editCity.text.toString())
+            .build()
+        // constraints will do the task when conditions of constraints are met
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        // do OneTimeWorkRequest for the task by MyWorker class
         val oneTimeWorkRequest = OneTimeWorkRequest.Builder(MyWorker::class.java)
             .setInputData(data)
             .setConstraints(constraints)
             .build()
+        // enqueue the given task
         workManager.enqueue(oneTimeWorkRequest)
+        // monitoring the task state
         workManager.getWorkInfoByIdLiveData(oneTimeWorkRequest.id)
             .observe(this@MainActivity) { workInfo ->
                 val status = workInfo.state.name
