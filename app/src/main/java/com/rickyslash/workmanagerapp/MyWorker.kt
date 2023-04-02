@@ -19,11 +19,14 @@ class MyWorker(context: Context, workerParams: WorkerParameters): Worker(context
 
     private var resultStatus: Result? = null
 
+    // do this when Worker called
     override fun doWork(): Result {
+        // get data from 'Data.Builder()'
         val dataCity = inputData.getString(EXTRA_CITY)
         return getCurrentWeather(dataCity)
     }
 
+    // fetching data from API
     private fun getCurrentWeather(city: String?): Result {
         Log.d(TAG, "getCurrentWeather: Start..")
         Looper.prepare()
@@ -49,7 +52,7 @@ class MyWorker(context: Context, workerParams: WorkerParameters): Worker(context
                     showNotification(title, message)
                     resultStatus = Result.success()
                 } catch (e: Exception) {
-                    showNotification("getCurrentWeather() error onSuccess", e.message)
+                    showNotification("Fail Getting Weather", e.message)
                     resultStatus = Result.failure()
                 }
             }
@@ -60,13 +63,14 @@ class MyWorker(context: Context, workerParams: WorkerParameters): Worker(context
                 error: Throwable?
             ) {
                 Log.d(TAG, "getCurrentWeather() onFailure ${error?.message}")
-                showNotification("getCurrentWeather() onFailure", error?.message)
+                showNotification("Fail Getting Weather", error?.message)
                 resultStatus = Result.failure()
             }
         })
         return resultStatus as Result
     }
 
+    // function to show notification
     private fun showNotification(title: String, description: String?) {
         val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notification: NotificationCompat.Builder = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
